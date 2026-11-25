@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú de navegación</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .contenedor {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #263238;
+            margin-bottom: 30px;
+        }
+
+        .menu {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .boton {
+            display: block;
+            padding: 16px;
+            background-color: #1976d2;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .boton:hover {
+            background-color: #0d47a1;
+        }
+
+        @media (max-width: 450px) {
+            .menu {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="contenedor">
+        <h1> EXAMPLES THREE JS - </h1>
+
+        <div class="menu">
+            <a href="./examples/Zombie_Stumbling.html" class="boton"> Zombie Stumbling</a>
+            <a href="./examples/Dancing_Running_Man.html" class="boton">Dancing Running Man</a>
+            <a href="./examples/Dancing.html" class="boton">Dancing</a>
+            <a href="./examples/Jumping_Down.html" class="boton">Jumping Down</a>
+            <a href="./examples/Female_Dynamic_Pose.html" class="boton">Female Dynamic Pose</a>
+        </div>
+    </div>
+
+</body>
+</html>

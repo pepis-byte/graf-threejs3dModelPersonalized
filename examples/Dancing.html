@@ -1,0 +1,547 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>three.js - FBX Loader</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="main.css">
+</head>
+
+<body>
+
+    <!-- =====================================================
+         BLOQUE 1. CONFIGURACIÓN DE IMPORTACIONES
+         Permite utilizar Three.js y sus complementos mediante
+         rutas relativas al documento HTML.
+    ====================================================== -->
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "../build/three.module.js",
+            "three/addons/": "./jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import Stats from 'three/addons/libs/stats.module.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+
+        // =====================================================
+        // BLOQUE 2. VARIABLES Y CONFIGURACIÓN GENERAL
+        // Declara los elementos principales de la escena,
+        // cámara, controles, animación y modelos disponibles.
+        // =====================================================
+
+        const manager = new THREE.LoadingManager();
+
+        let camera, scene, renderer, controls, stats;
+        let object, loader;
+        let guiMorphsFolder;
+        let mixer;
+
+        const timer = new THREE.Timer();
+        timer.connect(document);
+
+        const params = {
+            asset: 'Dancing'
+        };
+
+        // Modelos FBX disponibles para seleccionar.
+        const assets = [
+            'Dancing',
+        ];
+
+
+        // =====================================================
+        // BLOQUE 3. CONFIGURACIÓN DE TEXTURA EXTERNA
+        // Define la ubicación de la imagen que se aplicará
+        // exclusivamente al modelo Dancing Running Man.
+        // =====================================================
+
+        const texturePath =
+            './textures/floors/FloorsCheckerboard_S_Normal.jpg';
+
+        const textureLoader = new THREE.TextureLoader(manager);
+
+        let externalTexture = null;
+
+
+        // =====================================================
+        // BLOQUE 4. INICIALIZACIÓN
+        // Ejecuta la configuración de la escena y sus elementos.
+        // =====================================================
+
+        init();
+
+
+        function init() {
+
+            // Contenedor principal.
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+
+            // =================================================
+            // BLOQUE 4.1. CÁMARA
+            // Define la perspectiva y posición de observación.
+            // =================================================
+
+            camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                1,
+                2000
+            );
+
+            camera.position.set(100, 200, 300);
+
+
+            // =================================================
+            // BLOQUE 4.2. ESCENA
+            // Define el fondo y la niebla ambiental.
+            // =================================================
+
+            scene = new THREE.Scene();
+
+            scene.background = new THREE.Color(0xa0a0a0);
+
+            scene.fog = new THREE.Fog( 0x654AA7,  100,   1000 );
+
+
+            // =================================================
+            // BLOQUE 4.3. ILUMINACIÓN
+            // Luz hemisférica: iluminación ambiental general.
+            // Luz direccional: iluminación superior y sombras.
+            // =================================================
+
+            const hemiLight = new THREE.HemisphereLight(
+                0xffffff,
+                0xE79865,
+                1.5
+            );
+
+            hemiLight.position.set(0, 200, 0);
+
+            scene.add(hemiLight);
+
+
+            // Luz direccional superior.
+            const dirLight = new THREE.DirectionalLight(
+                0x8B0000,
+                6
+            );
+
+            dirLight.position.set(0, 300, 0);
+
+            dirLight.castShadow = true;
+
+            // Configuración del área de sombras.
+            dirLight.shadow.camera.top = 180;
+            dirLight.shadow.camera.bottom = -100;
+            dirLight.shadow.camera.left = -120;
+            dirLight.shadow.camera.right = 126;
+
+            scene.add(dirLight);
+
+
+            // =================================================
+            // BLOQUE 4.4. SUELO Y CUADRÍCULA
+            // Crea una superficie para recibir sombras y una
+            // cuadrícula que facilita visualizar el espacio 3D.
+            // =================================================
+
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(2000, 2000),
+                new THREE.MeshPhongMaterial({
+                    color: 0xFFFFFF,
+                    depthWrite: true
+                })
+            );
+
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.receiveShadow = true;
+
+            scene.add(mesh);
+
+
+            const grid = new THREE.GridHelper(
+                2000,
+                20,
+                0x000000,
+                0x000000
+            );
+
+            grid.material.opacity = 0.1;
+            grid.material.transparent = true;
+
+            scene.add(grid);
+
+
+            // =================================================
+            // BLOQUE 4.5. CARGA DE TEXTURA
+            // Carga una sola vez la textura externa.
+            // No se aplica todavía a ningún modelo.
+            // =================================================
+
+            externalTexture = textureLoader.load(texturePath);
+
+            externalTexture.colorSpace = THREE.SRGBColorSpace;
+
+            externalTexture.wrapS = THREE.RepeatWrapping;
+            externalTexture.wrapT = THREE.RepeatWrapping;
+
+            externalTexture.repeat.set(1, 1);
+
+
+            // =================================================
+            // BLOQUE 4.6. CARGADOR FBX
+            // Inicializa el cargador y carga el modelo inicial.
+            // =================================================
+
+            loader = new FBXLoader(manager);
+
+            loadAsset(params.asset);
+
+
+            // =================================================
+            // BLOQUE 4.7. RENDERIZADOR
+            // Genera la visualización WebGL de la escena.
+            // =================================================
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+            renderer.shadowMap.enabled = true;
+
+            renderer.setAnimationLoop(animate);
+
+            container.appendChild(renderer.domElement);
+
+
+            // =================================================
+            // BLOQUE 4.8. CONTROLES DE CÁMARA
+            // Permite rotar la cámara alrededor del personaje.
+            // =================================================
+
+            controls = new OrbitControls(
+                camera,
+                renderer.domElement
+            );
+
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.enableDamping = true;
+
+            controls.target.set(0, 100, 0);
+
+            controls.update();
+
+
+            // =================================================
+            // BLOQUE 4.9. EVENTOS Y ESTADÍSTICAS
+            // Detecta cambios en el tamaño de ventana y muestra
+            // información del rendimiento de la escena.
+            // =================================================
+
+            window.addEventListener(
+                'resize',
+                onWindowResize
+            );
+
+            stats = new Stats();
+
+            container.appendChild(stats.dom);
+
+
+            // =================================================
+            // BLOQUE 4.10. INTERFAZ GUI
+            // Permite seleccionar los diferentes modelos FBX.
+            // =================================================
+
+            const gui = new GUI();
+
+            gui.add(
+                params,
+                'asset',
+                assets
+            ).onChange(function(value) {
+
+                loadAsset(value);
+
+            });
+
+            // Carpeta para controles de morph targets.
+            guiMorphsFolder = gui.addFolder('Morphs').hide();
+
+        }
+
+
+        // =====================================================
+        // BLOQUE 5. CARGA Y CONFIGURACIÓN DE MODELOS FBX
+        // Carga el modelo seleccionado, elimina el anterior,
+        // configura sus animaciones y aplica sus materiales.
+        // =====================================================
+
+        function loadAsset(asset) {
+
+            loader.load(
+                'models/fbx/' + asset + '.fbx',
+
+                function(group) {
+
+
+                    // =========================================
+                    // BLOQUE 5.1. LIBERACIÓN DEL MODELO ANTERIOR
+                    // Elimina geometrías, materiales y esqueletos
+                    // del personaje anterior para liberar memoria.
+                    // =========================================
+
+                    if (object) {
+
+                        object.traverse(function(child) {
+
+                            if (
+                                child.isSkinnedMesh &&
+                                child.skeleton
+                            ) {
+                                child.skeleton.dispose();
+                            }
+
+                            if (child.material) {
+
+                                const materials =
+                                    Array.isArray(child.material)
+                                    ? child.material
+                                    : [child.material];
+
+                                materials.forEach(material => {
+
+                                    if (material.map) {
+                                        material.map.dispose();
+                                    }
+
+                                    material.dispose();
+
+                                });
+
+                            }
+
+                            if (child.geometry) {
+                                child.geometry.dispose();
+                            }
+
+                        });
+
+                        scene.remove(object);
+
+                    }
+
+
+                    // =========================================
+                    // BLOQUE 5.2. ASIGNACIÓN DEL NUEVO MODELO
+                    // Guarda el personaje recién cargado.
+                    // =========================================
+
+                    object = group;
+
+
+                    // =========================================
+                    // BLOQUE 5.3. CONFIGURACIÓN DE ANIMACIONES
+                    // Comprueba si el FBX contiene animaciones
+                    // y reproduce la primera disponible.
+                    // =========================================
+
+                    if (
+                        object.animations &&
+                        object.animations.length
+                    ) {
+
+                        mixer = new THREE.AnimationMixer(object);
+
+                        const action = mixer.clipAction(
+                            object.animations[0]
+                        );
+
+                        action.play();
+
+                    } else {
+
+                        mixer = null;
+
+                    }
+
+
+                    // =========================================
+                    // BLOQUE 5.4. LIMPIEZA DE CONTROLES MORPH
+                    // Elimina los controles correspondientes
+                    // al modelo anterior.
+                    // =========================================
+
+                    guiMorphsFolder.children.forEach(child => {
+                        child.destroy();
+                    });
+
+                    guiMorphsFolder.hide();
+
+
+                    // =========================================
+                    // BLOQUE 5.5. CONFIGURACIÓN DE MATERIALES
+                    // Recorre los elementos del modelo.
+                    //
+                    // IMPORTANTE:
+                    // Solamente Dancing Running Man recibe
+                    // la textura externa.
+                    // Los demás conservan su material original.
+                    // =========================================
+
+                    object.traverse(function(child) {
+
+                        if (child.isMesh) {
+
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+
+
+                            // ---------------------------------
+                            // CONDICIÓN DE APLICACIÓN DE TEXTURA
+                            // ---------------------------------
+
+                            if (asset === 'Dancing Running Man') {
+
+                                // Material personalizado con textura.
+                                child.material =
+                                    new THREE.MeshStandardMaterial({
+
+                                        map: externalTexture,
+
+                                        color: 0xffffff,
+
+                                        metalness: 0.8,
+
+                                        roughness: 0.3
+
+                                    });
+
+                            }
+
+                            // ---------------------------------
+                            // LOS DEMÁS MODELOS CONSERVAN
+                            // SUS MATERIALES Y TEXTURAS ORIGINALES.
+                            // ---------------------------------
+
+
+                            // =================================
+                            // BLOQUE 5.6. MORPH TARGETS
+                            // Genera controles GUI para modificar
+                            // las deformaciones del modelo.
+                            // =================================
+
+                            if (child.morphTargetDictionary) {
+
+                                guiMorphsFolder.show();
+
+                                const meshFolder =
+                                    guiMorphsFolder.addFolder(
+                                        child.name || child.uuid
+                                    );
+
+                                Object.keys(
+                                    child.morphTargetDictionary
+                                ).forEach(key => {
+
+                                    meshFolder.add(
+                                        child.morphTargetInfluences,
+                                        child.morphTargetDictionary[key],
+                                        0,
+                                        1,
+                                        0.01
+                                    );
+
+                                });
+
+                            }
+
+                        }
+
+                    });
+
+
+                    // =========================================
+                    // BLOQUE 5.7. INCORPORACIÓN A LA ESCENA
+                    // Agrega el modelo configurado a la escena 3D.
+                    // =========================================
+
+                    scene.add(object);
+
+                }
+
+            );
+
+        }
+
+
+        // =====================================================
+        // BLOQUE 6. REDIMENSIONAMIENTO DE VENTANA
+        // Actualiza la cámara y el renderizador cuando cambia
+        // el tamaño de la ventana del navegador.
+        // =====================================================
+
+        function onWindowResize() {
+
+            camera.aspect =
+                window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        }
+
+
+        // =====================================================
+        // BLOQUE 7. BUCLE DE ANIMACIÓN
+        // Actualiza el tiempo, las animaciones, los controles
+        // de cámara y renderiza continuamente la escena.
+        // =====================================================
+
+        function animate() {
+
+            timer.update();
+
+            const delta = timer.getDelta();
+
+            if (mixer) {
+                mixer.update(delta);
+            }
+
+            controls.update();
+
+            renderer.render(scene, camera);
+
+            stats.update();
+
+        }
+
+    </script>
+
+</body>
+</html>
